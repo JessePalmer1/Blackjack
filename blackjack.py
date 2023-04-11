@@ -2,14 +2,17 @@ import random
 
 class BlackjackGame:
 
-    # TODO: incorporate a max number of splits 
-    # Show a player who splits all their pairs of cards before making him play the game for one of the hands
+    # TODO:
+    # Show a player who splits all their pairs of cards before making him play the game for one of the hands ???
+    # Add betting/doubling down
+    # If under 10 dollars, you are bankrupt and lose
+
 
     # Initializes the data structures needed
     # shoe holds 4 decks worth of the String representation of a card (e.g. "Eight of Spades")
     # cardToNumber is a dictionary that pairs the string card value with the blackjack value (e.g. "Queen" -> 10)
     # totals and hands hold the values and the respective hands of all the players, including the house. The house is always index 0
-    def __init__(self, numPlayers):
+    def __init__(self, numPlayers, startingMoney):
         print(f"Starting blackjack game with {numPlayers - 1} player{'' if numPlayers == 2 else 's'}...\n")
         self.numPlayers = numPlayers
         self.cards = ["Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King", "Ace"]
@@ -22,6 +25,8 @@ class BlackjackGame:
 
         self.totals = [[0] for i in range(numPlayers)]
         self.hands = [[[]] for i in range(numPlayers)]
+        self.playersMoney = [startingMoney for i in range(numPlayers)]
+        self.roundBets = [[]]
         self.cardToNumber = dict()
         self.gameNumber = 1
 
@@ -54,6 +59,7 @@ class BlackjackGame:
 
     # Runs a single round of blackjack - handles user input, etc
     def playRound(self):
+        self.collectBets()
         self.deal()
         for playerNum in range(1, self.numPlayers):
             handNum = 0
@@ -107,6 +113,31 @@ class BlackjackGame:
             if self.checkTotal(playerNum, handNum):
                 break
             hitOrStand = input("hit or stand: ").lower()
+    
+
+    def collectBets(self):
+        for i in range(self.numPlayers - 1):
+            self.collectBet(i + 1)
+
+    def collectBet(self, playerNum):
+        inputBet = ''
+        inputBet = input(f"Player {playerNum} place your bet: ")
+        while True:
+            try:
+                bet = int(inputBet)
+                if bet < 10:
+                    bet = input("You must bet at least $10: ")
+                elif bet > self.playersMoney[playerNum - 1]:
+                    bet = input(f"You only have {self.playersMoney[playerNum - 1]} dollars: ")
+                else:
+                    break
+            except Exception:
+                bet = input("Please enter a digit: ")
+        self.roundBets[playerNum - 1].append(bet)
+        self.playersMoney[playerNum - 1] -= bet
+        print()
+        
+
         
         
         
@@ -115,6 +146,10 @@ class BlackjackGame:
         while True:
             hitStandOrSplit = input("hit, stand, or split: ").lower()
             if hitStandOrSplit == 'split':
+                if self.roundBets[playerNum - 1][0] > self.playersMoney[playerNum - 1]:
+                    print("You cannot split because you have insufficient funds")
+                    return 'illegal'
+                self.roundBets[playerNum - 1].append(self.roundBets[playerNum - 1][0])
                 self.hands[playerNum].insert(handNum + 1, [])
                 secondCard = self.hands[playerNum][handNum].pop()
                 self.hands[playerNum][handNum + 1].append(secondCard)
@@ -260,7 +295,18 @@ def main():
         except Exception:
             numPlayers = input("Please enter a number: ")
     print()
-    game = BlackjackGame(int(numPlayers) + 1)
+    startingMoney = input("Enter the starting amount of money you wish to have: ")
+    while True:
+        try:
+            startingMoneyInt = int(startingMoney)
+            if startingMoneyInt < 100:
+                startingMoney = input("You must start with at least $100: ")
+            else:
+                break
+        except Exception:
+            startingMoney = input("Please enter a digit: ")
+    print()
+    game = BlackjackGame(numPlayersInt + 1, startingMoneyInt)
     game.play()
 
 if __name__ == '__main__':
