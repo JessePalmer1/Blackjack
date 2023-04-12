@@ -3,8 +3,7 @@ import random
 class BlackjackGame:
 
     # TODO:
-    # Show a player who splits all their pairs of cards before making him play the game for one of the hands ???
-    # Add betting/doubling down
+    # Add doubling down and insurance
     # If under 10 dollars, you are bankrupt and lose
 
 
@@ -20,13 +19,14 @@ class BlackjackGame:
         self.shoe = self.newShoe()
 
         self.shoe.append("Ace of Spades")
-        self.shoe.append("Three of Diamonds")
+        self.shoe.append("King of Diamonds")
+        self.shoe.append("King of hearts")
         self.shoe.append("Ace of Hearts")
 
         self.totals = [[0] for i in range(numPlayers)]
         self.hands = [[[]] for i in range(numPlayers)]
-        self.playersMoney = [startingMoney for i in range(numPlayers)]
-        self.roundBets = [[]]
+        self.playersMoney = [startingMoney for i in range(numPlayers - 1)]
+        self.roundBets = [[] for i in range(numPlayers - 1)]
         self.cardToNumber = dict()
         self.gameNumber = 1
 
@@ -60,7 +60,16 @@ class BlackjackGame:
     # Runs a single round of blackjack - handles user input, etc
     def playRound(self):
         self.collectBets()
-        self.deal()
+        dealerWon = self.deal()
+        if dealerWon:
+            self.printHands(0, 0, False)
+            for i in range(self.numPlayers - 1):
+                self.printHands(i + 1, 0, False)
+                if self.totals[i + 1][0] == 21:
+                    print("Player ", i + 1, "also has blackjack. You keep your bet")
+                    self.playersMoney[i] += self.roundBets[i][0]
+            print()
+            return
         for playerNum in range(1, self.numPlayers):
             handNum = 0
             while handNum < len(self.hands[playerNum]):
@@ -70,23 +79,28 @@ class BlackjackGame:
         self.dealersTurn()
         print()
         dealerTotal = self.totals[0][0]
-        if dealerTotal == 21:
-            print("Dealer wins with blackjack! Everyone loses")
-        else:
-            for playerIndex in range(1, len(self.totals)):
-                for i, total in enumerate(self.totals[playerIndex]):
-                    self.printHands(playerIndex, i, True if len(self.totals[playerIndex]) > 1 else False)
-                    if total > 21:
-                        print("You busted! You lose")
-                    elif total == 21:
-                        print("You won with blackjack!")
-                    elif dealerTotal > 21:
-                        print("Dealer busted! You win by default")
+        for playerIndex in range(1, len(self.totals)):
+            for i, total in enumerate(self.totals[playerIndex]):
+                self.printHands(playerIndex, i, True if len(self.totals[playerIndex]) > 1 else False)
+                if total > 21:
+                    print("You busted! You lose")
+                elif total == 21 and len(self.hands[playerIndex][i]) == 21:
+                    print("You won with natural blackjack! Payout:", int(self.roundBets[playerIndex - 1] * 2.5))
+                    self.playersMoney[playerIndex - 1] += int(self.roundBets[playerIndex - 1][i] * 1.5)
+                elif dealerTotal > 21:
+                    print("Dealer busted! You win. Payout:", self.roundBets[playerIndex - 1][i])
+                    self.playersMoney[playerIndex - 1] += 2 * self.roundBets[playerIndex - 1][i]
+                else:
+                    if total > dealerTotal:
+                        print("You won by getting closer than the dealer! Payout:", self.roundBets[playerIndex - 1][i])
+                        self.playersMoney[playerIndex - 1] += 2 * self.roundBets[playerIndex - 1][i]
+                    elif dealerTotal > total:
+                        print("The dealer got closer than you, so you lose")
                     else:
-                        if total > dealerTotal:
-                            print("You won by getting closer than the dealer!")
-                        else:
-                            print("The dealer got closer than you, so you lose")
+                        print("You tied the dealer, so you keep your bet")
+                        self.playersMoney[playerIndex - 1] += self.roundBets[playerIndex - 1][i]
+        for i in range(self.numPlayers - 1):
+            self.roundBets[i].clear()
 
 
         
@@ -121,18 +135,18 @@ class BlackjackGame:
 
     def collectBet(self, playerNum):
         inputBet = ''
-        inputBet = input(f"Player {playerNum} place your bet: ")
+        inputBet = input(f"Player {playerNum} place your bet (total funds: {self.playersMoney[playerNum - 1]}): ")
         while True:
             try:
                 bet = int(inputBet)
                 if bet < 10:
-                    bet = input("You must bet at least $10: ")
+                    inputBet = input("You must bet at least $10: ")
                 elif bet > self.playersMoney[playerNum - 1]:
-                    bet = input(f"You only have {self.playersMoney[playerNum - 1]} dollars: ")
+                    inputBet = input(f"You only have {self.playersMoney[playerNum - 1]} dollars: ")
                 else:
                     break
             except Exception:
-                bet = input("Please enter a digit: ")
+                inputBet = input("Please enter a digit: ")
         self.roundBets[playerNum - 1].append(bet)
         self.playersMoney[playerNum - 1] -= bet
         print()
@@ -150,6 +164,7 @@ class BlackjackGame:
                     print("You cannot split because you have insufficient funds")
                     return 'illegal'
                 self.roundBets[playerNum - 1].append(self.roundBets[playerNum - 1][0])
+                self.playersMoney[playerNum - 1] -= self.roundBets[playerNum - 1][0]
                 self.hands[playerNum].insert(handNum + 1, [])
                 secondCard = self.hands[playerNum][handNum].pop()
                 self.hands[playerNum][handNum + 1].append(secondCard)
@@ -197,9 +212,13 @@ class BlackjackGame:
             for player in range(1, self.numPlayers):
                 self.hit(player, 0)
             self.hit(0, 0)
-        # print one of the dealer's cards so the players can see
+        # Print one of the dealer's cards so the players can see
         print("Dealer's card shown:", self.hands[0][0][1], '\n')
-            
+        # If the dealer has a natural blackjack, no one plays their turn
+        if self.totals[0][0] == 21:
+            print("Dealer wins with blackjack\n")
+            return True
+        return False
     
 
 
@@ -227,17 +246,17 @@ class BlackjackGame:
             print("Blackjack!")
             return True
         elif self.totals[playerNum][handNum] > 21:
-            print("Bust! Total: ", self.totals[playerNum][handNum])
+            print("Bust! Total card values: ", self.totals[playerNum][handNum])
             return True
         return False
 
 
     # Prints a player's hand to terminal. If no input is given, prints every players hands
     def printHands(self, playerNum, handNum, isSplit):
-        numHandOutput = {1 : " first", 2 : " second", 3 : " third", 4 : " fourth"}
+        numHandOutput = {1 : "first", 2 : "second", 3 : "third", 4 : "fourth"}
         if playerNum is not None and handNum is not None:
             nameFormat = "Dealer" if playerNum == 0 else "Player " + str(playerNum)
-            print(f"{nameFormat}'s{numHandOutput[handNum + 1] if isSplit else ''} hand: ", end='')
+            print(f"{nameFormat}'s {numHandOutput[handNum + 1] if isSplit else ''} hand: ", end='')
             for i, card in enumerate(self.hands[playerNum][handNum]):
                 if card[0 : card.index(' ')] == 'Ace(1)':
                     card = card[0 : 3] + card[6:]
