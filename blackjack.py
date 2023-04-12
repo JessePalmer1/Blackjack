@@ -3,7 +3,7 @@ import random
 class BlackjackGame:
 
     # TODO:
-    # Add doubling down and insurance
+    # Add insurance
     # If under 10 dollars, you are bankrupt and lose
 
 
@@ -11,24 +11,24 @@ class BlackjackGame:
     # shoe holds 4 decks worth of the String representation of a card (e.g. "Eight of Spades")
     # cardToNumber is a dictionary that pairs the string card value with the blackjack value (e.g. "Queen" -> 10)
     # totals and hands hold the values and the respective hands of all the players, including the house. The house is always index 0
+    # totals and hands are multi-dimensional arrays that are as follows: [player number][hand number (in case of splits)][hand/total]
     def __init__(self, numPlayers, startingMoney):
         print(f"Starting blackjack game with {numPlayers - 1} player{'' if numPlayers == 2 else 's'}...\n")
         self.numPlayers = numPlayers
         self.cards = ["Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King", "Ace"]
         self.suits = ["Spades", "Hearts", "Diamonds", "Clubs"]
         self.shoe = self.newShoe()
-
-        self.shoe.append("Ace of Spades")
-        self.shoe.append("King of Diamonds")
-        self.shoe.append("King of hearts")
-        self.shoe.append("Ace of Hearts")
-
         self.totals = [[0] for i in range(numPlayers)]
         self.hands = [[[]] for i in range(numPlayers)]
         self.playersMoney = [startingMoney for i in range(numPlayers - 1)]
         self.roundBets = [[] for i in range(numPlayers - 1)]
         self.cardToNumber = dict()
         self.gameNumber = 1
+
+        # self.shoe.append("Ace of Spades")
+        # self.shoe.append("King of Diamonds")
+        # self.shoe.append("King of hearts")
+        # self.shoe.append("Ace of Hearts")
 
         for i in range(2, 10):
             self.cardToNumber[self.cards[i-2]] = i
@@ -51,9 +51,6 @@ class BlackjackGame:
                 self.shoe = self.newShoe()
             self.gameNumber += 1
             print(f"Starting round {self.gameNumber}...\n")
-
-
-
 
     
 
@@ -84,8 +81,8 @@ class BlackjackGame:
                 self.printHands(playerIndex, i, True if len(self.totals[playerIndex]) > 1 else False)
                 if total > 21:
                     print("You busted! You lose")
-                elif total == 21 and len(self.hands[playerIndex][i]) == 21:
-                    print("You won with natural blackjack! Payout:", int(self.roundBets[playerIndex - 1] * 2.5))
+                elif total == 21 and len(self.hands[playerIndex][i]) == 2:
+                    print("You won with natural blackjack! Payout:", int(self.roundBets[playerIndex - 1][i] * 2.5))
                     self.playersMoney[playerIndex - 1] += int(self.roundBets[playerIndex - 1][i] * 1.5)
                 elif dealerTotal > 21:
                     print("Dealer busted! You win. Payout:", self.roundBets[playerIndex - 1][i])
@@ -111,9 +108,25 @@ class BlackjackGame:
             return
         if self.checkSplit(playerNum, handNum):
             hitOrStand = self.splitTurn(playerNum, handNum)
+            if hitOrStand == 'dd':
+                return
             if hitOrStand == 'split':
                 self.playersTurn(playerNum, handNum, True)
                 return
+        # Provides the option to double down when applicable
+        elif len(self.hands[playerNum][handNum]) == 2:
+            while True:
+                hitOrStand = input("hit, stand, or double down (dd): ").lower()
+                if hitOrStand == 'dd':
+                    if self.roundBets[playerNum - 1][handNum] > self.playersMoney[playerNum - 1]:
+                        print("You cannot double down because you have insufficient funds")
+                    else:
+                        self.doubleDown(playerNum, handNum)
+                        return
+                elif hitOrStand != 'stand' and hitOrStand != 'hit':
+                    print('Please type ', end='')
+                else:
+                    break
         else:
             hitOrStand = input("hit or stand: ").lower()
         while True:
@@ -129,9 +142,16 @@ class BlackjackGame:
             hitOrStand = input("hit or stand: ").lower()
     
 
+
     def collectBets(self):
         for i in range(self.numPlayers - 1):
+            if self.playersMoney[i] < 10:
+                print(f"Player {i + 1} does not have sufficient funds to bet\n")
+                self.roundBets[i] = 0
+                continue
             self.collectBet(i + 1)
+
+
 
     def collectBet(self, playerNum):
         inputBet = ''
@@ -152,16 +172,31 @@ class BlackjackGame:
         print()
         
 
+    # Performs the double down operation on a hand (adds exactly one card and doubles the bet)
+    def doubleDown(self, playerNum, handNum):
+        self.playersMoney[playerNum - 1] -= self.roundBets[playerNum - 1][handNum]
+        self.roundBets[playerNum - 1][handNum] *= 2
+        print("Giving you one more card and doubling your bet")
+        self.hit(playerNum, handNum)
+        self.printHands(playerNum, handNum, True if handNum > 0 else False)
+        if not self.checkTotal(playerNum, handNum):
+            print("Total:", self.totals[playerNum][handNum])
         
         
         
     # splitTurn is called when it is possible to split. It specifically handles the case when the player decides to split.
     def splitTurn(self, playerNum, handNum):
         while True:
-            hitStandOrSplit = input("hit, stand, or split: ").lower()
+            hitStandOrSplit = input("hit, stand, split, or double down (dd): ").lower()
+            if hitStandOrSplit == 'dd':
+                if (self.roundBets[playerNum - 1][handNum] > self.playersMoney[playerNum - 1]):
+                    print("You cannot split or double down because you have insufficient funds")
+                    return 'illegal'
+                self.doubleDown(playerNum, handNum)
+                break
             if hitStandOrSplit == 'split':
-                if self.roundBets[playerNum - 1][0] > self.playersMoney[playerNum - 1]:
-                    print("You cannot split because you have insufficient funds")
+                if self.roundBets[playerNum - 1][handNum] > self.playersMoney[playerNum - 1]:
+                    print("You cannot split or double down because you have insufficient funds")
                     return 'illegal'
                 self.roundBets[playerNum - 1].append(self.roundBets[playerNum - 1][0])
                 self.playersMoney[playerNum - 1] -= self.roundBets[playerNum - 1][0]
@@ -181,6 +216,7 @@ class BlackjackGame:
         return hitStandOrSplit
 
 
+
     # Plays the dealer's turn. Dealer never splits, and hits on a total of 16 or less
     def dealersTurn(self):
         self.printHands(0, 0, False)
@@ -190,6 +226,7 @@ class BlackjackGame:
             self.printHands(0, 0, False)
         if not self.checkTotal(0, 0):
             print("Stand")
+
 
 
     # Returns whether or not the two dealt cards are the same (whether or not you are allowed to split)
@@ -213,7 +250,7 @@ class BlackjackGame:
                 self.hit(player, 0)
             self.hit(0, 0)
         # Print one of the dealer's cards so the players can see
-        print("Dealer's card shown:", self.hands[0][0][1], '\n')
+        print("Dealer's up card:", self.hands[0][0][1], '\n')
         # If the dealer has a natural blackjack, no one plays their turn
         if self.totals[0][0] == 21:
             print("Dealer wins with blackjack\n")
@@ -249,6 +286,7 @@ class BlackjackGame:
             print("Bust! Total card values: ", self.totals[playerNum][handNum])
             return True
         return False
+
 
 
     # Prints a player's hand to terminal. If no input is given, prints every players hands
@@ -295,9 +333,9 @@ class BlackjackGame:
         shoe.append('Ace of Hearts')
         shoe.append('Nine of diamonds')
         shoe.append('Ace of spades')
-
         random.shuffle(shoe)
         return shoe
+
 
 
 # Main method that runs when file is run - starts a new blackjack game
