@@ -1,12 +1,7 @@
 import random
 
 class BlackjackGame:
-
-    # TODO:
-    # Add insurance
-    # If under 10 dollars, you are bankrupt and lose
-
-
+    
     # Initializes the data structures needed
     # shoe holds 4 decks worth of the String representation of a card (e.g. "Eight of Spades")
     # cardToNumber is a dictionary that pairs the string card value with the blackjack value (e.g. "Queen" -> 10)
